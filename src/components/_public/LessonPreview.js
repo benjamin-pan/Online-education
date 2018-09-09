@@ -1,121 +1,255 @@
-import React from 'react';
-import { Tree, Button, Popconfirm, Popover, Modal } from 'antd';
-
-// import $ from 'jquery';
-
-import style from './LessonPreview.less';
-
-import { getMathJax, imageUri, katexShow } from '../../utils/formatDataSource';
+import React from "react";
+import { Tree, Button, Popconfirm, Popover, Modal } from "antd";
+import style from "./LessonPreview.less";
+import { getMathJax, imageUri, katexShow } from "../../utils/formatDataSource";
+import Katex from "../../components/_public/Katex";
 
 class LessonPreview extends React.Component {
-  componentDidMount() {}
+  constructor(props) {
+    super(props);
+    this.contentIndex = 0;
+    this.pageIndex = 0;
+    this.previewBox = null;
+    this.firstDomOfPage = null;
+    this.pageId = 0;
+    this.prePage = this.prePage.bind(this);
+    this.nextPage = this.nextPage.bind(this);
+    this.markLines = [];
+  }
 
-  _m1 = () => {
-    return [
-      {
-        title: '第一章第一章第一章',
-        content:
-        '第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合' +
-        '第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合' +
-        '第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合' +
-        '第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合第一章知识点与集合',
-        type: 1,
-        q_1: [],
-        q_2: [],
-      },
-      {
-        title: '第一节第一节第一节',
-        content: '内容内容内容内容内容内容内容内容',
-        type: 2,
-        q_1: [],
-        q_2: [],
-      },
-      {
-        title: '知识点一',
-        content: '内容内容内容内容内容内容内容内容',
-        type: 3,
-        q_1: [],
-        q_2: [],
-      },
-      {
-        title: '方法一',
-        content: '内容内容内容内容内容内容内容内容',
-        type: 4,
-        q_1: [],
-        q_2: [],
-      },
-      {
-        title: '题型一',
-        content: '内容内容内容内容内容内容内容内容',
-        type: 5,
-        q_1: [
-          // 例题
-          {
-            stem: '我是题干',
-            type: 1, // 题目类型 1：选择题 2：填空题 3：简答题
-            optionList: [],
-            analysisList: [],
-            answerList: [],
-          },
-          {
-            stem: '我是题干',
-            type: 1, // 题目类型 1：选择题 2：填空题 3：简答题
-            optionList: [],
-            analysisList: [],
-            answerList: [],
-          },
-        ],
-        q_2: [
-          // 习题
-          {
-            stem: '我是题干',
-            type: 1, // 题目类型 1：选择题 2：填空题 3：简答题
-            optionList: [],
-            analysisList: [],
-            answerList: [],
-          },
-        ],
-      },
-    ];
+  closePreview = () => {
+    this.props.onClose();
   };
 
-  _m2 = () => {};
+  componentDidMount() {
+    this.getPreviewBox();
+  }
 
-  _m3 = () => {
-    this.props.onOk();
+  getPreviewBox = () => {
+    let timer = setTimeout(() => {
+      this.previewBox = document.getElementById("previewBox");
+      // && document.getElementsByClassName('page').length === 0
+      if (this.previewBox) this.createPage();
+      else this.getPreviewBox();
+      clearTimeout(timer);
+    }, 1000);
   };
 
-  _m4 = () => {
-    this.props.onCancel();
-  };
+  // 处理图片换行
+  imgDispalyBlock() {
+    let imgs = document.getElementsByTagName("img");
+    console.log(imgs);
+    for (let i = 0, l = imgs.length; i < l; i++) {
+      imgs[i].style.display = "block";
+    }
+  }
 
+  createPage() {
+    // this.imgDispalyBlock();
+    let div = document.createElement("div");
+    div.id = "page" + this.pageIndex;
+    div.className = "page";
+    console.log(this.previewBox.append);
+    console.log(this.previewBox.appendChild);
+    // this.previewBox.append(div);
+    this.previewBox.appendChild(div);
+    this.findFirstPageContent();
+  }
+
+  findFirstPageContent() {
+    let maybePageContent = this.previewBox.children;
+    let onePage = document.getElementById("page" + this.pageIndex);
+    let contentLength = maybePageContent.length;
+    if (this.firstDomOfPage) {
+      // onePage.append(this.firstDomOfPage);
+      onePage.appendChild(this.firstDomOfPage);
+      this.firstDomOfPage = null;
+    }
+    for (; contentLength > 0; ) {
+      contentLength--;
+      if (contentLength === 0) {
+        this.finished();
+      }
+      if (maybePageContent[0].className.indexOf("pageContent") > -1) {
+        let pageContent = document.createElement("div");
+        pageContent.innerHTML = maybePageContent[0].innerHTML;
+        pageContent.style.margin = "0";
+        pageContent.className = "pageContent" + this.contentIndex;
+        this.contentIndex++;
+        // onePage.append(pageContent);
+        onePage.appendChild(pageContent);
+        maybePageContent[0].remove();
+        if (onePage.clientHeight > 596) {
+          this.markLines.push(this.contentIndex - 2);
+          this.firstDomOfPage = pageContent;
+          this.pageIndex++;
+          this.createPage();
+        }
+      }
+    }
+  }
+
+  finished() {
+    this.hidePage();
+    this.showPage();
+    document.getElementById("total").innerHTML = this.pageIndex + 1;
+    this.props.setMarkLines(this.markLines);
+  }
+
+  hidePage() {
+    let pages = document.getElementsByClassName("page");
+    for (let l = pages.length, i = 0; i < l; i++) {
+      pages[i].style.display = "none";
+    }
+  }
+
+  showPage() {
+    document.getElementById("page" + this.pageId).style.display = "block";
+    document.getElementById("activePage").innerHTML = this.pageId + 1;
+  }
+
+  prePage() {
+    if (this.pageId > 0) {
+      this.hidePage();
+      this.pageId--;
+      this.showPage();
+    }
+  }
+
+  nextPage() {
+    console.log(this.pageIndex);
+    console.log(this.pageId);
+    if (this.pageId < this.pageIndex) {
+      this.hidePage();
+      this.pageId++;
+      this.showPage();
+    }
+  }
+
+  getDoms(value) {
+    if (value.key === "1") {
+      return (
+        <div className={style.content_1}>
+          <Katex value={value.content} />
+        </div>
+      );
+    } else if (value.key.split("_").length === 2) {
+      return (
+        <div className={style.content_2}>
+          <Katex value={value.content} />
+        </div>
+      );
+    } else if (value.key.split("_").length === 3) {
+      return (
+        <div>
+          <p className={style.content_3}>知识点</p>
+          <p style={{ fontSize: "10px" }}>
+            <Katex value={value.content} />
+          </p>
+        </div>
+      );
+    } else if (value.key.split("_").length === 4) {
+      return (
+        <div>
+          <p className={style.content_4}>方法</p>
+          <p style={{ fontSize: "10px" }}>
+            <Katex value={value.content} />
+          </p>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <p className={style.content_5}>题型</p>
+          <p style={{ fontSize: "10px" }}>
+            <Katex value={value.content} />
+          </p>
+        </div>
+      );
+    }
+  }
 
   render() {
-    const data = this._m1();
-    const { visible, dataSource } = this.props;
-
     return (
-      <Modal visible={visible} title="预览课件" width="70%" onOk={this._m3} onCancel={this._m4}>
-        <div style={{ width: '530px', height: '700px', backgroundColor: 'green' }} id="test">
-          <div style={{ margin: '0px 20px' }}>
-            <div style={{ fontSize: '20px', textAlign: 'center' }}>
-              第一章知识点与集合第一章知识点与集合第一章知识点与集合
-            </div>
-          </div>
-        </div>
-        <span
-          id="ruler"
+      <Modal
+        visible={this.props.visible}
+        style={{
+          top: 0,
+          padding: "60px 30px",
+          background: "#404042",
+          borderRadius: "20px"
+        }}
+        bodyStyle={{ padding: "12px 14px" }}
+        width="513px"
+        wrapClassName={style.myModal}
+        // title="预览课件"
+        footer={null}
+        closable={false}
+        onOk={this.closePreview}
+        onCancel={this.closePreview}
+      >
+        <div
+          id="previewBox"
           style={{
-            position: 'absolute',
-            visibility: 'hidden',
-            whiteSpace: 'nowrap',
-            zIndex: '-100',
+            padding: "12px",
+            width: "429px",
+            height: "596px",
+            background: "#f0f4f7"
           }}
         >
-          test
-        </span>
+          {this.props.dataSource.map((value, index) => {
+            return (
+              <div className={`pageContent`} key={index}>
+                {this.getDoms(value)}
+              </div>
+            );
+          })}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "20px",
+              textAlign: "center",
+              width: "405px"
+            }}
+          >
+            <Button type="primary" onClick={this.prePage}>
+              上一页
+            </Button>
+            <span style={{ margin: "10px" }}>
+              第<span id={"activePage"}>1</span>/<span id={"total"} />页
+            </span>
+            <Button type="primary" onClick={this.nextPage}>
+              下一页
+            </Button>
+          </div>
+          <div
+            onClick={this.closePreview}
+            style={{
+              position: "absolute",
+              bottom: "-48px",
+              left: "203px",
+              width: "40px",
+              height: "40px",
+              borderRadius: "20px",
+              background: "#CCCCCC",
+              cursor: "pointer"
+            }}
+          />
+        </div>
+        {/*<span*/}
+        {/*id="ruler"*/}
+        {/*style={{*/}
+        {/*position: 'absolute',*/}
+        {/*visibility: 'hidden',*/}
+        {/*whiteSpace: 'nowrap',*/}
+        {/*zIndex: '-100',*/}
+        {/*}}*/}
+        {/*>*/}
+        {/*test*/}
+        {/*</span>*/}
       </Modal>
     );
   }
 }
+
 export default LessonPreview;
