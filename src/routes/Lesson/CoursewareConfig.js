@@ -30,6 +30,7 @@ import {
   minHeight,
   heightTwoMain
 } from "../../utils/formatDataSource";
+import { length } from "../../components/Ellipsis/index";
 
 // import Preview from '../../components/Preview'
 
@@ -536,10 +537,109 @@ class CoursewareConfig extends PureComponent {
   };
 
   setMarkLines(val) {
-    this.dataSource.map((value, index) => {
+    let content = [...this.state.content];
+    content.map((value, index) => {
       if (val.includes(index)) value.pageMark = 1;
     });
+    this.setState({
+      content: content
+    });
   }
+
+  toggleMarkLines(index) {
+    console.log(123, index);
+    let content = [...this.state.content];
+    content[index].pageMark = (content[index].pageMark + 1) % 2;
+    this.setState({
+      content: content
+    });
+  }
+
+  breakContent(arr) {
+    // TODO 拆分为方法
+    let finishArr = [];
+    let content = [...this.state.content];
+    arr.map(val => {
+      // 数据分为公式，图片和文字数组
+      let contentArr = content[val.index].content.match(
+        /\\\[((?!\[).)+\]|((?!\\\[((?!\\\[).)+\]).)+/g
+      );
+      let newContentArr = [];
+      contentArr.map(value => {
+        if (/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g.test(value))
+          return value
+            .match(/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g)
+            .map(val => {
+              newContentArr.push(val);
+            });
+        else newContentArr.push(value);
+      });
+      // 把文字文本整合到图片或者公式后面
+      newContentArr.map((value, index) => {
+        if (!(/^\#\{.+\}$/.test(value) || /^\\\[.+\\\]$/.test(value))) {
+          if (index > 0) {
+            newContentArr[index - 1] += newContentArr[index];
+            newContentArr.splice(index, 1);
+          }
+        }
+      });
+      // 还原dom数据
+      let newStringArr = [];
+      let length = newContentArr.length;
+      let preValue = null;
+      Array(...val.breaks, length).map((value, index) => {
+        if (index === 0)
+          newStringArr[val.breaks.length - index] = newContentArr.slice(
+            length - value
+          );
+        else
+          newStringArr[val.breaks.length - index] = newContentArr.slice(
+            length - value,
+            preValue
+          );
+        preValue = length - value;
+      });
+      finishArr.push(newStringArr);
+    });
+    // 最终数据分割
+    for (let i = arr.length - 1; i >= 0; i--) {
+      finishArr[i].map((v, j) => {
+        let needSplice = JSON.parse(JSON.stringify(content[arr[j].index]));
+        needSplice.content = v.join("");
+        needSplice.markLines = 1;
+        if (j === 0) content[arr[i].index] = needSplice;
+        else content.splice(arr[i].index + j, 0, needSplice);
+      });
+    }
+    // 最终回传数据
+    console.log(content);
+    this.setState({
+      content: content
+    });
+  }
+
+  // getContentArr (val) {
+  //   let content = [...this.dataSource];
+  //   let contentArr = content[val].content.match(/\\\[((?!\[).)+\]|((?!\\\[((?!\\\[).)+\]).)+/g);
+  //   let newContentArr = [];
+  //   contentArr.map(value => {
+  //     if (/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g.test(value)) return value.match(/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g).map(val => {
+  //       newContentArr.push(val);
+  //     });
+  //     else newContentArr.push(value);
+  //   })
+  //   return newContentArr
+  // }
+  //
+  // createSring (arr, breaks) {
+  //   let newStringArr = [];
+  //   let length = arr.length;
+  //   let preValue = null;
+  //   breaks.map((value, index) => {
+  //     newStringArr[breaks.length - index] = arr.slice(arr.length - value, preValue);
+  //   })
+  //   console.log(newStringArr);
+  // }
 
   getQuestionList = (hard, use) => {
     const { dispatch } = this.props;
@@ -729,7 +829,7 @@ class CoursewareConfig extends PureComponent {
             <Spin tip="Loading..." spinning={this.state.detailInfoLoading}>
               {this.state.content.map((c, i) => {
                 return (
-                  <div key={c.key}>
+                  <div key={i}>
                     <div style={{ marginBottom: "6px" }}>
                       <Row>
                         <Col span={22}>
@@ -862,8 +962,11 @@ class CoursewareConfig extends PureComponent {
 
         <LessonPreview
           visible={this.state.previewShow}
-          setMarkLines={this.setMarkLines}
+          setMarkLines={this.setMarkLines.bind(this)}
+          breakContent={this.breakContent.bind(this)}
           onClose={this.closePreview}
+          toggleMarkLines={this.toggleMarkLines.bind(this)}
+          expandedRowRender={this.expandedRowRender}
           dataSource={this.state.content}
         />
       </PageHeaderLayout>

@@ -22,7 +22,7 @@
 }
 
 .myModal {
-  transform: scale(0.9, 0.9);
+  //transform: scale(0.9, 0.9);
   //top: 0;
   //padding: 60px 30px;
   //background: #404042;
@@ -30,6 +30,7 @@
 }
 
 .content_1 {
+  position: relative;
   padding: 0 12px;
   margin: 0;
   text-align: center;
@@ -38,6 +39,7 @@
 }
 
 .content_2 {
+  position: relative;
   padding: 0 12px;
   margin: 0;
   text-align: center;
@@ -67,4 +69,39 @@
   border-left: 2px solid #46b8fe;
   font-size: 12px;
   font-weight: 700;
+}
+
+.paginationLine {
+  width: 97%;
+  margin: 0;
+  position: absolute;
+  bottom: 0;
+  background: #1890ff;
+  text-align: right;
+}
+
+.show {
+  height: 1px;
+}
+
+.hide {
+  height: 0px;
+}
+
+.lines {
+  position: relative;
+}
+
+.content_1:hover .paginationLineAction,
+.content_2:hover .paginationLineAction,
+.lines:hover .paginationLineAction {
+  display: block;
+}
+
+.paginationLineAction {
+  display: none;
+  color: #1890ff;
+  font-size: 14px;
+  position: relative;
+  top: -26px;
 }
