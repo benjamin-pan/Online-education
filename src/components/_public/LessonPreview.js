@@ -14,9 +14,11 @@ class LessonPreview extends React.Component {
     this.pageId = 0;
     this.prePage = this.prePage.bind(this);
     this.nextPage = this.nextPage.bind(this);
+    this.save = this.save.bind(this);
     this.markLines = [];
     this.breakArr = [];
     this.breakPoint = {};
+    this.newData = [];
   }
 
   componentDidMount() {
@@ -28,10 +30,10 @@ class LessonPreview extends React.Component {
     this.props.onClose();
   };
 
-  handlePageLine(value, index) {
-    console.log(0);
-    // this.props.handlePageLine(value, index);
-  }
+  // handlePageLine (value, index) {
+  //   console.log(0);
+  // this.props.handlePageLine(value, index);
+  // }
 
   getPreviewBox = () => {
     let timer = setTimeout(() => {
@@ -77,10 +79,10 @@ class LessonPreview extends React.Component {
     if (this.firstDomOfPage) {
       // onePage.append(this.firstDomOfPage);
       onePage.appendChild(this.firstDomOfPage);
-      if (onePage.clientHeight > 596) {
-        console.log("总数量：", this.props.dataSource.length);
+      if (onePage.clientHeight > 510) {
+        // console.log('总数量：', this.newData)
         let index =
-          this.props.dataSource.length -
+          this.newData.length -
           document.getElementsByClassName("pageContent").length -
           1;
         if (this.ifSame !== index) {
@@ -111,7 +113,7 @@ class LessonPreview extends React.Component {
         this.imgDispalyBlock(onePage);
         // console.log(onePage.clientHeight)
         maybePageContent[0].remove();
-        if (onePage.clientHeight > 596) {
+        if (onePage.clientHeight > 510) {
           this.markLines.push(this.contentIndex - 2);
           this.firstDomOfPage = pageContent;
           this.pageIndex++;
@@ -146,7 +148,7 @@ class LessonPreview extends React.Component {
           needRemove
         );
         // console.log(father.clientHeight);
-        if (father.clientHeight <= 596) {
+        if (father.clientHeight <= 510) {
           let breaks = this.breakPoint.breaks;
           if (breaks.length > 0) breaks.push(breaks[breaks.length - 1] + i);
           else breaks.push(i);
@@ -168,12 +170,19 @@ class LessonPreview extends React.Component {
     }
   }
 
+  save() {
+    this.props.save(this.newData, this.markLines);
+    // [...document.getElementsByClassName('page')].map(val => {
+    //   val.remove();
+    // })
+  }
+
   finished() {
     // this.imgDispalyBlock();
     this.hidePage();
     this.showPage();
     document.getElementById("total").innerHTML = this.pageIndex + 1;
-    this.props.setMarkLines(this.markLines);
+    // this.props.setMarkLines(this.newData, this.markLines);
     [...document.getElementsByClassName("personBreaks")].map(val => {
       val.onclick = () => {
         console.log(val.getAttribute("data-pageMark"));
@@ -221,9 +230,10 @@ class LessonPreview extends React.Component {
   }
 
   getDoms(value, index) {
-    if (value.key === "1") {
+    if (value.key && value.key === "1") {
       return (
         <div className={style.content_1}>
+          <Katex value={value.content} />
           <p
             className={`${style.paginationLine} ${
               value.pageMark === 1 ? style.show : style.hide
@@ -240,7 +250,7 @@ class LessonPreview extends React.Component {
           </p>
         </div>
       );
-    } else if (value.key.split("_").length === 2) {
+    } else if (value.key && value.key.split("_").length === 2) {
       return (
         <div className={style.content_2}>
           <Katex value={value.content} />
@@ -260,7 +270,7 @@ class LessonPreview extends React.Component {
           </p>
         </div>
       );
-    } else if (value.key.split("_").length === 3) {
+    } else if (value.key && value.key.split("_").length === 3) {
       return (
         <div className={style.lines}>
           {/*<p className={style.content_3}>知识点</p>*/}
@@ -283,7 +293,7 @@ class LessonPreview extends React.Component {
           </p>
         </div>
       );
-    } else if (value.key.split("_").length === 4) {
+    } else if (value.key && value.key.split("_").length === 4) {
       return (
         <div className={style.lines}>
           {/*<p className={style.content_4}>方法</p>*/}
@@ -333,6 +343,50 @@ class LessonPreview extends React.Component {
   }
 
   render() {
+    let myData = [...this.props.dataSource];
+    this.newData = [];
+    myData.map(val => {
+      let demoQuestions = [...val.demoQuestions];
+      val.demoQuestions = [];
+      this.newData.push(val);
+      if (demoQuestions) {
+        demoQuestions.map(value => {
+          this.newData.push({
+            content: value.stem,
+            type: 6,
+            pageMark: 0
+          });
+          let arrayLength = Math.max(
+            value.answerVoList,
+            value.analysisVoList,
+            value.optionVoList
+          );
+          Array.of(arrayLength).map((v, i) => {
+            if (value.optionVoList[i]) {
+              this.newData.push({
+                content: value.optionVoList[i].content,
+                type: 7,
+                pageMark: 0
+              });
+            }
+            if (value.answerVoList[i]) {
+              this.newData.push({
+                content: value.answerVoList[i].content,
+                type: 8,
+                pageMark: 0
+              });
+            }
+            if (value.analysisVoList[i]) {
+              this.newData.push({
+                content: value.analysisVoList[i].content,
+                type: 9,
+                pageMark: 0
+              });
+            }
+          });
+        });
+      }
+    });
     return (
       <Modal
         visible={this.props.visible}
@@ -360,53 +414,40 @@ class LessonPreview extends React.Component {
             background: "#f0f4f7"
           }}
         >
-          {this.props.dataSource.map((c, i) => {
+          {this.newData.map((c, i) => {
             return (
-              <div key={i}>
-                <div className={`pageContent`} style={{ marginBottom: "6px" }}>
-                  <p className={"needOpration"}>
-                    <Katex value={c.content} />
-                  </p>
-                </div>
-                {c.demoQuestions.map((val, index) => {
-                  return (
-                    <div className={`pageContent`}>
-                      <Katex value={val.stem} />
-                      {(val.answerVoList.length > val.analysisVoList.length
-                        ? val.answerVoList
-                        : val.analysisVoList
-                      ).map((value, index) => {
-                        return (
-                          <div
-                            data-parent={i}
-                            data-child={index}
-                            className={"needOpration"}
-                          >
-                            <p data-parent={i} data-child={index}>
-                              答案：
-                              <Katex
-                                value={
-                                  (val.answerVoList[index] || {}).content || ""
-                                }
-                              />
-                            </p>
-                            <p data-parent={i} data-child={index}>
-                              解题：
-                              <Katex
-                                value={
-                                  (val.analysisVoList[index] || {}).content ||
-                                  ""
-                                }
-                              />
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
+              <div className={`pageContent`} key={i}>
+                {this.getDoms(c, i)}
               </div>
             );
+
+            // return this.getDoms(c, i);
+            // return (
+            //   <div key={i}>
+            //     <div className={`pageContent`} style={{marginBottom: '6px'}}>
+            //       <p className={'needOpration'}><Katex value={c.content}/></p>
+            //     </div>
+            //     {
+            //       c.demoQuestions.map((val, index) => {
+            //         return (
+            //           <div className={`pageContent`}>
+            //             <Katex value={val.stem}/>
+            //             {
+            //               (val.answerVoList.length > val.analysisVoList.length ? val.answerVoList : val.analysisVoList).map((value, index) => {
+            //                 return (
+            //                   <div data-parent={i} data-child={index} className={'needOpration'}>
+            //                     <p data-parent={i} data-child={index}>答案：<Katex value={(val.answerVoList[index] || {}).content || ''}/></p>
+            //                     <p data-parent={i} data-child={index}>解题：<Katex value={(val.analysisVoList[index] || {}).content || ''}/></p>
+            //                   </div>
+            //                 )
+            //               })
+            //             }
+            //           </div>
+            //         )
+            //       })
+            //     }
+            //   </div>
+            // )
           })}
           <div
             style={{
@@ -439,6 +480,17 @@ class LessonPreview extends React.Component {
               cursor: "pointer"
             }}
           />
+          <div
+            style={{
+              position: "absolute",
+              bottom: "-48px",
+              left: "280px"
+            }}
+          >
+            <Button type="primary" onClick={this.save}>
+              保存
+            </Button>
+          </div>
         </div>
         {/*<span*/}
         {/*id="ruler"*/}

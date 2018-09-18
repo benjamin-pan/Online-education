@@ -494,8 +494,17 @@ class CoursewareConfig extends PureComponent {
       }
     }
   };
-  save = () => {
-    const { content: data, checkedKeys, totalKeys } = this.state;
+  save = (content, marks) => {
+    this.setState({
+      previewShow: false
+    });
+    marks.map(value => {
+      content[value].pageMark = 1;
+    });
+    this.setState({
+      content: content
+    });
+    const { checkedKeys, totalKeys } = this.state;
     const {
       dispatch,
       location: { search }
@@ -511,7 +520,7 @@ class CoursewareConfig extends PureComponent {
     dispatch({
       type: "lesson/coursewareAdd",
       payload: {
-        data,
+        data: content,
         lessonId,
         selectedTrees,
         totalTrees
@@ -536,14 +545,17 @@ class CoursewareConfig extends PureComponent {
     this.setState({ previewShow: false });
   };
 
-  setMarkLines(val) {
-    let content = [...this.state.content];
-    content.map((value, index) => {
-      if (val.includes(index)) value.pageMark = 1;
-    });
-    this.setState({
-      content: content
-    });
+  setMarkLines(content, marks) {
+    // console.log(marks);
+    // let content = [...this.state.content];
+    // marks.map(value => {
+    //   content[value].pageMark = 1;
+    // })
+    // this.setState({
+    //   previewShow: false,
+    //   content: content
+    // });
+    // console.log(this.state.content);
   }
 
   toggleMarkLines(index) {
@@ -934,18 +946,12 @@ class CoursewareConfig extends PureComponent {
             <button
               type="primary"
               className="ant-btn ant-btn-primary"
-              style={{ marginRight: "20px" }}
+              // style={{marginRight: '20px'}}
               onClick={this.preview}
             >
               预览
             </button>
-            <Button
-              type="primary"
-              onClick={this.save}
-              loading={this.props.saveLoading}
-            >
-              保存
-            </Button>
+            {/*<Button type="primary" onClick={this.save} loading={this.props.saveLoading}>保存</Button>*/}
           </Card>
         </Col>
 
@@ -967,6 +973,7 @@ class CoursewareConfig extends PureComponent {
           onClose={this.closePreview}
           toggleMarkLines={this.toggleMarkLines.bind(this)}
           expandedRowRender={this.expandedRowRender}
+          save={this.save}
           dataSource={this.state.content}
         />
       </PageHeaderLayout>
