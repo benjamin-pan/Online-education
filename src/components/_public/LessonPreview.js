@@ -75,7 +75,7 @@ class LessonPreview extends React.Component {
     let onePage = document.getElementById("page" + this.pageIndex);
     // console.log(this.pageIndex);
     let contentLength = maybePageContent.length;
-    console.log("剩余数量：", contentLength);
+    // console.log('剩余数量：', contentLength)
     if (this.firstDomOfPage) {
       // onePage.append(this.firstDomOfPage);
       onePage.appendChild(this.firstDomOfPage);
@@ -111,11 +111,15 @@ class LessonPreview extends React.Component {
         // onePage.append(pageContent);
         onePage.appendChild(pageContent);
         this.imgDispalyBlock(onePage);
-        // console.log(onePage.clientHeight)
+        let ifMarkLine = maybePageContent[0].getAttribute("data") === "1";
+        // console.log(ifMarkLine);
         maybePageContent[0].remove();
         if (onePage.clientHeight > 510) {
           this.markLines.push(this.contentIndex - 2);
           this.firstDomOfPage = pageContent;
+          this.pageIndex++;
+          this.createPage();
+        } else if (ifMarkLine) {
           this.pageIndex++;
           this.createPage();
         }
@@ -127,7 +131,7 @@ class LessonPreview extends React.Component {
     let pageContent = document.createElement("div");
     pageContent.innerHTML = cotent;
     pageContent.style.margin = "0";
-    pageContent.className = "pageContent" + this.contentIndex;
+    pageContent.className = "pageCont pageContent" + this.contentIndex;
     this.contentIndex++;
     return pageContent;
   }
@@ -177,28 +181,77 @@ class LessonPreview extends React.Component {
     // })
   }
 
+  addEvent() {
+    [...document.getElementsByClassName("personBreaks")].map(val => {
+      val.onclick = () => {
+        if (Number(val.getAttribute("data-pageMark")) === 0) {
+          val.getElementsByClassName("borderTop")[0].style.borderTop =
+            "1px solid #1890ff";
+          val.getElementsByClassName("changeTest")[0].innerHTML = "取消分页";
+          val.setAttribute("data-pageMark", "1");
+          this.moveDoms(val);
+        } else {
+          val.getElementsByClassName("borderTop")[0].style.border = "none";
+          val.getElementsByClassName("changeTest")[0].innerHTML = "在此处分页";
+          val.setAttribute("data-pageMark", "0");
+        }
+        this.props.toggleMarkLines(Number(val.getAttribute("data-index")));
+      };
+    });
+  }
+
   finished() {
     // this.imgDispalyBlock();
     this.hidePage();
     this.showPage();
     document.getElementById("total").innerHTML = this.pageIndex + 1;
     // this.props.setMarkLines(this.newData, this.markLines);
-    [...document.getElementsByClassName("personBreaks")].map(val => {
-      val.onclick = () => {
-        console.log(val.getAttribute("data-pageMark"));
-        if (Number(val.getAttribute("data-pageMark")) === 0) {
-          val.parentNode.style.height = "1px";
-          val.innerHTML = "取消分页线";
-          val.setAttribute("data-pageMark", "1");
-        } else {
-          val.parentNode.style.height = "0px";
-          val.innerHTML = "设置分页线";
-          val.setAttribute("data-pageMark", "0");
+    this.addEvent();
+  }
+
+  moveDoms(dom) {
+    try {
+      let pageContent = dom.parentNode;
+      let parent = null;
+      let index = 0;
+      let needMoveStr = "";
+      if (pageContent.className.indexOf("pageContent") > -1) {
+        parent = pageContent.parentNode;
+        index = pageContent.className.split("pageContent")[1];
+      }
+      if (pageContent.parentNode.className.indexOf("pageContent") > -1) {
+        parent = pageContent.parentNode.parentNode;
+        index = pageContent.parentNode.className.split("pageContent")[1];
+      }
+      index = Number(index);
+      console.log(index);
+      [...parent.getElementsByClassName("pageCont")].map(val => {
+        if (Number(val.className.split("pageContent")[1]) > index) {
+          needMoveStr += val.outerHTML;
+          val.remove();
         }
-        this.props.toggleMarkLines(Number(val.getAttribute("data-index")));
-      };
-    });
-    // console.log(this.breakArr);
+      });
+      let parentIndex = Number(parent.id.split("page")[1]);
+      [...document.getElementsByClassName("page")].map(val => {
+        let nowIndex = Number(val.id.split("page")[1]);
+        if (nowIndex > parentIndex) {
+          val.id = "page" + (nowIndex + 1);
+        }
+      });
+      let div = document.createElement("div");
+      div.id = "page" + (parentIndex + 1);
+      div.className = "page";
+      div.innerHTML = needMoveStr;
+      div.style.display = "none";
+      console.log(parentIndex);
+      document.getElementById("page" + parentIndex).outerHTML =
+        document.getElementById("page" + parentIndex).outerHTML + div.outerHTML;
+      this.pageIndex++;
+      document.getElementById("total").innerHTML = this.pageIndex + 1;
+      this.addEvent();
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   hidePage() {
@@ -230,113 +283,118 @@ class LessonPreview extends React.Component {
   }
 
   getDoms(value, index) {
-    if (value.key && value.key === "1") {
+    let text =
+      {
+        7: "选项",
+        8: "答案：",
+        9: "分析："
+      }[value.type] || "";
+    if (Number(value.type) === 1) {
       return (
-        <div className={style.content_1}>
+        <div
+          className={`${style.content_1} personBreaks`}
+          data-pageMark={value.pageMark}
+          data-index={index}
+        >
           <Katex value={value.content} />
           <p
             className={`${style.paginationLine} ${
               value.pageMark === 1 ? style.show : style.hide
-            }`}
+            } borderTop`}
           >
             <a
-              className={`${style.paginationLineAction} personBreaks`}
+              className={`${style.paginationLineAction} changeTest`}
               href="javascript:;"
-              data-index={index}
-              data-pageMark={value.pageMark}
             >
-              {value.pageMark === 1 ? "取消分页线" : "设置分页线"}
+              {value.pageMark === 1 ? "取消分页" : "在此处分页"}
             </a>
           </p>
         </div>
       );
-    } else if (value.key && value.key.split("_").length === 2) {
+    } else if (Number(value.type) === 2) {
       return (
-        <div className={style.content_2}>
+        <div
+          className={`${style.content_2} personBreaks`}
+          data-pageMark={value.pageMark}
+          data-index={index}
+        >
           <Katex value={value.content} />
           <p
             className={`${style.paginationLine} ${
               value.pageMark === 1 ? style.show : style.hide
-            }`}
+            } borderTop`}
           >
             <a
-              className={`${style.paginationLineAction} personBreaks`}
+              className={`${style.paginationLineAction} changeTest`}
               href="javascript:;"
-              data-index={index}
-              data-pageMark={value.pageMark}
             >
-              {value.pageMark === 1 ? "取消分页线" : "设置分页线"}
+              {value.pageMark === 1 ? "取消分页" : "在此处分页"}
             </a>
           </p>
         </div>
       );
-    } else if (value.key && value.key.split("_").length === 3) {
+    }
+    // else if (value.key && value.key.split('_').length === 3) {
+    //   return <div className={style.lines}>
+    //     {/*<p className={style.content_3}>知识点</p>*/}
+    //     <p style={{fontSize: '10px'}} className={'needOpration'}>
+    //       <Katex value={value.content}/>
+    //       <p className={`${style.paginationLine} ${value.pageMark === 1 ? style.show : style.hide}`}>
+    //         <a className={`${style.paginationLineAction} personBreaks`}
+    //            href="javascript:;"
+    //            data-index={index}
+    //            data-pageMark={value.pageMark}>{value.pageMark === 1 ? '取消分页' : '在此处分页'}</a>
+    //       </p>
+    //     </p>
+    //   </div>
+    // } else if (value.key && value.key.split('_').length === 4) {
+    //   return <div className={style.lines}>
+    //     {/*<p className={style.content_4}>方法</p>*/}
+    //     <p style={{fontSize: '10px'}} className={'needOpration'}>
+    //       <Katex value={value.content}/>
+    //       <p className={`${style.paginationLine} ${value.pageMark === 1 ? style.show : style.hide}`}>
+    //         <a className={`${style.paginationLineAction} personBreaks`}
+    //            href="javascript:;"
+    //            data-index={index}
+    //            data-pageMark={value.pageMark}>{value.pageMark === 1 ? '取消分页' : '在此处分页'}</a>
+    //       </p>
+    //     </p>
+    //   </div>
+    // }
+    else {
       return (
-        <div className={style.lines}>
-          {/*<p className={style.content_3}>知识点</p>*/}
-          <p style={{ fontSize: "10px" }} className={"needOpration"}>
-            <Katex value={value.content} />
-            <p
-              className={`${style.paginationLine} ${
-                value.pageMark === 1 ? style.show : style.hide
-              }`}
-            >
-              <a
-                className={`${style.paginationLineAction} personBreaks`}
-                href="javascript:;"
-                data-index={index}
-                data-pageMark={value.pageMark}
-              >
-                {value.pageMark === 1 ? "取消分页线" : "设置分页线"}
-              </a>
-            </p>
-          </p>
-        </div>
-      );
-    } else if (value.key && value.key.split("_").length === 4) {
-      return (
-        <div className={style.lines}>
-          {/*<p className={style.content_4}>方法</p>*/}
-          <p style={{ fontSize: "10px" }} className={"needOpration"}>
-            <Katex value={value.content} />
-            <p
-              className={`${style.paginationLine} ${
-                value.pageMark === 1 ? style.show : style.hide
-              }`}
-            >
-              <a
-                className={`${style.paginationLineAction} personBreaks`}
-                href="javascript:;"
-                data-index={index}
-                data-pageMark={value.pageMark}
-              >
-                {value.pageMark === 1 ? "取消分页线" : "设置分页线"}
-              </a>
-            </p>
-          </p>
-        </div>
-      );
-    } else {
-      return (
-        <div className={style.lines}>
+        <div
+          className={`${style.lines} personBreaks`}
+          data-pageMark={value.pageMark}
+          data-index={index}
+        >
           {/*<p className={style.content_5}>题型</p>*/}
-          <p style={{ fontSize: "10px" }} className={"needOpration"}>
-            <Katex value={value.content} />
+          <div style={{ fontSize: "10px" }} className={"needOpration"}>
+            <p>
+              <span
+                style={{
+                  display: "inline-block",
+                  height: "100%",
+                  lineHeight: "1"
+                }}
+              >
+                {text}
+              </span>
+              <Katex value={value.content} />
+            </p>
             <p
               className={`${style.paginationLine} ${
                 value.pageMark === 1 ? style.show : style.hide
-              }`}
+              } borderTop`}
             >
               <a
-                className={`${style.paginationLineAction} personBreaks`}
+                className={`${style.paginationLineAction} changeTest`}
                 href="javascript:;"
-                data-index={index}
-                data-pageMark={value.pageMark}
               >
-                {value.pageMark === 1 ? "取消分页线" : "设置分页线"}
+                {value.pageMark === 1 ? "取消分页" : "在此处分页"}
               </a>
             </p>
-          </p>
+          </div>
         </div>
       );
     }
@@ -348,6 +406,7 @@ class LessonPreview extends React.Component {
     myData.map(val => {
       let demoQuestions = [...val.demoQuestions];
       val.demoQuestions = [];
+      // if (val.id)
       this.newData.push(val);
       if (demoQuestions) {
         demoQuestions.map(value => {
@@ -393,6 +452,7 @@ class LessonPreview extends React.Component {
         style={{
           top: 0,
           padding: "60px 30px",
+          marginLeft: "200px",
           background: "#404042",
           borderRadius: "20px"
         }}
@@ -416,7 +476,7 @@ class LessonPreview extends React.Component {
         >
           {this.newData.map((c, i) => {
             return (
-              <div className={`pageContent`} key={i}>
+              <div className={`pageContent`} key={i} data={c.pageMark}>
                 {this.getDoms(c, i)}
               </div>
             );
@@ -483,13 +543,20 @@ class LessonPreview extends React.Component {
           <div
             style={{
               position: "absolute",
-              bottom: "-48px",
-              left: "280px"
+              bottom: "50%",
+              left: "600px"
             }}
           >
-            <Button type="primary" onClick={this.save}>
-              保存
-            </Button>
+            <p>
+              <Button type="primary" onClick={this.save}>
+                确定保存
+              </Button>
+            </p>
+            <p>
+              <Button type="primary" onClick={this.closePreview}>
+                返回修改
+              </Button>
+            </p>
           </div>
         </div>
         {/*<span*/}

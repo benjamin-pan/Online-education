@@ -854,14 +854,14 @@ class CoursewareConfig extends PureComponent {
                               onClick={() => this.handlePageLine(c, 1)}
                               hidden={c.pageMark === 1}
                             >
-                              设置分页线
+                              在此处分页
                             </a>
                             <a
                               href="javascript:;"
                               onClick={() => this.handlePageLine(c, 0)}
                               hidden={c.pageMark === 0}
                             >
-                              取消分页线
+                              取消分页
                             </a>
                           </span>
                         </Col>
