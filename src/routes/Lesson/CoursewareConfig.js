@@ -494,16 +494,16 @@ class CoursewareConfig extends PureComponent {
       }
     }
   };
-  save = (content, marks) => {
+  save = content => {
     this.setState({
       previewShow: false
     });
-    marks.map(value => {
-      content[value].pageMark = 1;
-    });
-    this.setState({
-      content: content
-    });
+    // marks.map(value => {
+    //   content[value].pageMark = 1;
+    // })
+    // this.setState({
+    //   content: content
+    // });
     const { checkedKeys, totalKeys } = this.state;
     const {
       dispatch,

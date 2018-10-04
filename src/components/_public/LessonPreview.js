@@ -1,8 +1,22 @@
 import React from "react";
-import { Tree, Button, Popconfirm, Popover, Modal, Table, Tag } from "antd";
+import {
+  Tree,
+  Button,
+  Popconfirm,
+  Popover,
+  Modal,
+  Table,
+  Tag,
+  Spin
+} from "antd";
 import style from "./LessonPreview.less";
-import { getMathJax, imageUri, katexShow } from "../../utils/formatDataSource";
-import Katex from "../../components/_public/Katex";
+import {
+  deepClone,
+  getMathJax,
+  imageUri,
+  katexShow
+} from "../../utils/formatDataSource";
+import Katex from "../../components/_public/KatexForPreview";
 
 class LessonPreview extends React.Component {
   constructor(props) {
@@ -19,35 +33,68 @@ class LessonPreview extends React.Component {
     this.breakArr = [];
     this.breakPoint = {};
     this.newData = [];
+    this.maxPageHeight = 510;
+    this.str = "";
+    this.maybePageContent = null;
+    this.contentLength = 0;
+    this.index = 0;
+    this.time = 0;
+    this.timer = null;
+    this.state = {
+      loading: true
+    };
   }
 
   componentDidMount() {
     this.getPreviewBox();
   }
 
+  componentDidUpdate() {
+    this.getPreviewBox();
+  }
+
   closePreview = () => {
-    this.props.breakContent(this.breakArr);
+    this.previewBox.innerHTML = "";
     this.props.onClose();
   };
 
-  // handlePageLine (value, index) {
-  //   console.log(0);
-  // this.props.handlePageLine(value, index);
-  // }
-
   getPreviewBox = () => {
-    let timer = setTimeout(() => {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      clearTimeout(this.timer);
       this.previewBox = document.getElementById("previewBox");
       if (
         this.previewBox &&
-        document.getElementsByClassName("page").length === 0
+        this.previewBox.getElementsByClassName("page").length === 0
       ) {
-        console.log("运行多次");
+        if (!this.props.visible) return;
+        this.resetData();
+        this.previewBox = document.getElementById("previewBox");
+        this.maybePageContent = document
+          .getElementById("getDom")
+          .getElementsByClassName("pageContent");
+        this.contentLength = this.maybePageContent.length;
         this.createPage();
-      } else this.getPreviewBox();
-      clearTimeout(timer);
+      } else {
+        this.getPreviewBox();
+      }
     }, 1000);
   };
+
+  resetData() {
+    this.contentIndex = 0;
+    this.pageIndex = 0;
+    this.previewBox = null;
+    this.firstDomOfPage = null;
+    this.pageId = 0;
+    this.markLines = [];
+    this.breakArr = [];
+    this.breakPoint = {};
+    this.newData = [];
+    this.maybePageContent = null;
+    this.index = 0;
+    this.time = 0;
+  }
 
   // 处理图片换行
   imgDispalyBlock(father) {
@@ -61,34 +108,21 @@ class LessonPreview extends React.Component {
     let div = document.createElement("div");
     div.id = "page" + this.pageIndex;
     div.className = "page";
-    // console.log(this.previewBox.append)
-    // console.log(this.previewBox.appendChild)
-    // this.previewBox.append(div);
     this.previewBox.appendChild(div);
     this.findFirstPageContent();
   }
 
   findFirstPageContent() {
-    let maybePageContent = this.previewBox.getElementsByClassName(
-      "pageContent"
-    );
     let onePage = document.getElementById("page" + this.pageIndex);
-    // console.log(this.pageIndex);
-    let contentLength = maybePageContent.length;
-    // console.log('剩余数量：', contentLength)
     if (this.firstDomOfPage) {
-      // onePage.append(this.firstDomOfPage);
       onePage.appendChild(this.firstDomOfPage);
-      if (onePage.clientHeight > 510) {
-        // console.log('总数量：', this.newData)
-        let index =
-          this.newData.length -
-          document.getElementsByClassName("pageContent").length -
-          1;
+      this.setBR(onePage);
+      if (onePage.clientHeight > this.maxPageHeight) {
+        let index = this.index;
         if (this.ifSame !== index) {
           this.ifSame = index;
           this.breakPoint = {
-            index: index,
+            index: index - 1,
             breaks: []
           };
         }
@@ -98,24 +132,23 @@ class LessonPreview extends React.Component {
           this.breakArr.push(this.breakPoint);
         this.breakPoint = {};
       }
-      // this.firstDomOfPage = null;
     }
-    for (; contentLength > 0; ) {
-      contentLength--;
-      if (contentLength === 0) {
-        this.finished();
-      }
-      if (maybePageContent[0] === undefined) continue;
-      if (maybePageContent[0].className.indexOf("pageContent") > -1) {
-        let pageContent = this.createPageContent(maybePageContent[0].innerHTML);
-        // onePage.append(pageContent);
+    for (; this.contentLength > 0; ) {
+      this.contentLength--;
+      if (this.maybePageContent[this.index] === undefined) continue;
+      if (
+        this.maybePageContent[this.index].className.indexOf("pageContent") > -1
+      ) {
+        let pageContent = this.createPageContent(
+          this.maybePageContent[this.index].innerHTML
+        );
         onePage.appendChild(pageContent);
         this.imgDispalyBlock(onePage);
-        let ifMarkLine = maybePageContent[0].getAttribute("data") === "1";
-        // console.log(ifMarkLine);
-        maybePageContent[0].remove();
-        if (onePage.clientHeight > 510) {
-          this.markLines.push(this.contentIndex - 2);
+        let ifMarkLine =
+          this.maybePageContent[this.index].getAttribute("data") === "1";
+        this.index++;
+        this.setBR(onePage);
+        if (onePage.clientHeight > this.maxPageHeight) {
           this.firstDomOfPage = pageContent;
           this.pageIndex++;
           this.createPage();
@@ -124,12 +157,19 @@ class LessonPreview extends React.Component {
           this.createPage();
         }
       }
+      if (this.contentLength === 0) {
+        this.finished();
+        break;
+      }
     }
   }
 
-  createPageContent(cotent) {
+  createPageContent(content) {
     let pageContent = document.createElement("div");
-    pageContent.innerHTML = cotent;
+    content += `<p class="${style.paginationLine} borderTop"}><a class="${
+      style.paginationLineAction
+    } changeTest" href="javascript:;">在此处分页</a></p>`;
+    pageContent.innerHTML = content;
     pageContent.style.margin = "0";
     pageContent.className = "pageCont pageContent" + this.contentIndex;
     this.contentIndex++;
@@ -141,18 +181,16 @@ class LessonPreview extends React.Component {
       .children[0];
     if (needOpration.children.length > 0) {
       let nextPage = [];
-      // console.log(this.contentIndex)
       for (let i = 0; ; ) {
         i++;
         let needRemove = needOpration.innerHTML.lastIndexOf("<span>");
         nextPage.unshift(needOpration.innerHTML.substring(needRemove));
-        // console.log(needOpration.innerHTML.substring(needRemove))
         needOpration.innerHTML = needOpration.innerHTML.substring(
           0,
           needRemove
         );
-        // console.log(father.clientHeight);
-        if (father.clientHeight <= 510) {
+        this.setBR(father);
+        if (father.clientHeight <= this.maxPageHeight) {
           let breaks = this.breakPoint.breaks;
           if (breaks.length > 0) breaks.push(breaks[breaks.length - 1] + i);
           else breaks.push(i);
@@ -162,12 +200,7 @@ class LessonPreview extends React.Component {
           pageContent.className = "needOpration";
           this.pageIndex++;
           this.firstDomOfPage = this.createPageContent(pageContent.outerHTML);
-          // console.log(this.firstDomOfPage);
           this.createPage();
-          // this.breakArr.push({
-          //   index:this.contentIndex-i,
-          //   breaks:breakPoints
-          // })
           break;
         }
       }
@@ -175,38 +208,215 @@ class LessonPreview extends React.Component {
   }
 
   save() {
-    this.props.save(this.newData, this.markLines);
-    // [...document.getElementsByClassName('page')].map(val => {
-    //   val.remove();
-    // })
+    [...document.getElementsByClassName("page")].map(val => {
+      let pageCont = val.getElementsByClassName("pageCont");
+      this.markLines.push(
+        pageCont[pageCont.length - 1].className.split("pageContent")[1]
+      );
+    });
+    let finillyData = this.breakContent();
+    this.markLines.map(value => {
+      finillyData[value].pageMark = 1;
+    });
+    [...document.getElementsByClassName("pageCont")].map((v, i) => {
+      finillyData[i].page = Number(v.parentNode.id.split("page")[1]) + 1;
+    });
+    console.log(finillyData);
+    // this.props.save(finillyData);
+  }
+
+  breakContent() {
+    let arr = this.breakArr;
+    console.log(this.breakArr);
+    // TODO 拆分为方法
+    let finishArr = [];
+    let content = [...this.newData];
+    arr.map(val => {
+      // 数据分为公式，图片和文字数组
+      let contentArr = content[val.index].content.match(
+        /\\\[((?!\[).)+\]|((?!\\\[((?!\\\[).)+\]).)+/g
+      );
+      let newContentArr = [];
+      contentArr.map(value => {
+        if (/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g.test(value))
+          return value
+            .match(/\#\{((?!\#\{).)+\}|((?!\#\{((?!\#\{).)+\}).)+/g)
+            .map(val => {
+              newContentArr.push(val);
+            });
+        else newContentArr.push(value);
+      });
+      // 把文字文本整合到图片或者公式后面
+      newContentArr.map((value, index) => {
+        if (!(/^\#\{.+\}$/.test(value) || /^\\\[.+\\\]$/.test(value))) {
+          if (index > 0) {
+            newContentArr[index - 1] += newContentArr[index];
+            newContentArr.splice(index, 1);
+          }
+        }
+      });
+      // 还原dom数据
+      let newStringArr = [];
+      let length = newContentArr.length;
+      let preValue = null;
+      Array(...val.breaks, length).map((value, index) => {
+        if (index === 0)
+          newStringArr[val.breaks.length - index] = newContentArr.slice(
+            length - value
+          );
+        else
+          newStringArr[val.breaks.length - index] = newContentArr.slice(
+            length - value,
+            preValue
+          );
+        preValue = length - value;
+      });
+      finishArr.push(newStringArr);
+    });
+    // 最终数据分割
+    for (let i = arr.length - 1; i >= 0; i--) {
+      finishArr[i].map((v, j) => {
+        let needSplice = JSON.parse(JSON.stringify(content[arr[j].index]));
+        needSplice.content = v.join("");
+        needSplice.markLines = 1;
+        needSplice.previous = true;
+        if (j === 0) content[arr[i].index] = needSplice;
+        else content.splice(arr[i].index + j, 0, needSplice);
+      });
+    }
+    // 最终回传数据
+    return content;
   }
 
   addEvent() {
     [...document.getElementsByClassName("personBreaks")].map(val => {
       val.onclick = () => {
+        this.setState({ loading: true });
         if (Number(val.getAttribute("data-pageMark")) === 0) {
-          val.getElementsByClassName("borderTop")[0].style.borderTop =
-            "1px solid #1890ff";
-          val.getElementsByClassName("changeTest")[0].innerHTML = "取消分页";
-          val.setAttribute("data-pageMark", "1");
+          this.setLine(val);
           this.moveDoms(val);
         } else {
-          val.getElementsByClassName("borderTop")[0].style.border = "none";
-          val.getElementsByClassName("changeTest")[0].innerHTML = "在此处分页";
-          val.setAttribute("data-pageMark", "0");
+          this.removeLine(val);
+          this.preMoveDoms(val);
         }
-        this.props.toggleMarkLines(Number(val.getAttribute("data-index")));
+        this.setState({ loading: false });
       };
     });
   }
 
   finished() {
     // this.imgDispalyBlock();
+    this.getTotalPage();
+    this.createMarkLines();
     this.hidePage();
     this.showPage();
-    document.getElementById("total").innerHTML = this.pageIndex + 1;
-    // this.props.setMarkLines(this.newData, this.markLines);
+    this.setState({ loading: false });
+  }
+
+  setBR(parent) {
+    let isSpan = false;
+    [...parent.getElementsByClassName("addBR")].map(val => {
+      if (val.offsetWidth > 380) {
+        [...val.childNodes].map(value => {
+          if (value.tagName === "SPAN") {
+            if (isSpan) {
+              value.outerHTML = "<br>" + value.outerHTML;
+            }
+            isSpan = true;
+          } else isSpan = false;
+        });
+      }
+    });
+  }
+
+  createMarkLines() {
+    this.markLines = [];
+    [...document.getElementsByClassName("page")].map(value => {
+      let pageCont = value.getElementsByClassName("pageCont");
+      if (pageCont.length > 0) {
+        try {
+          this.markLines.push(
+            pageCont[pageCont.length - 1].className.split("pageContent")[1]
+          );
+          [...pageCont].map(value => {
+            this.removeLine(value);
+          });
+          let val = pageCont[pageCont.length - 1].getElementsByClassName(
+            "personBreaks"
+          )[0];
+          this.setLine(val);
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    });
     this.addEvent();
+  }
+
+  setLine(val) {
+    val.getElementsByClassName("borderTop")[0].style.borderTop =
+      "1px solid #1890ff";
+    val.getElementsByClassName("changeTest")[0].innerHTML = "取消分页";
+    val.setAttribute("data-pageMark", "1");
+  }
+
+  removeLine(val) {
+    val.getElementsByClassName("borderTop")[0].style.borderTop = "none";
+    val.getElementsByClassName("changeTest")[0].innerHTML = "在此处分页";
+    val.setAttribute("data-pageMark", "0");
+  }
+
+  computeHeigthAndMove(activePage, formNext) {
+    let pages = [...document.getElementsByClassName("page")];
+    let activePageId = Number(activePage.id.split("page")[1]);
+    if (formNext) activePageId++;
+    pages.map((val, index) => {
+      if (Number(val.id.split("page")[1]) >= activePageId) {
+        val.style.display = "block";
+        let fatherBreak = false;
+        for (let j = 1, k = pages.length; j < k; j++) {
+          if (fatherBreak) {
+            fatherBreak = false;
+            break;
+          }
+          if (pages[index + j]) {
+            for (;;) {
+              let v = [
+                ...pages[index + j].getElementsByClassName("pageCont")
+              ][0];
+              let pageHTML = val.innerHTML;
+              if (v === undefined) break;
+              val.innerHTML = val.innerHTML + v.outerHTML;
+              if (val.clientHeight > this.maxPageHeight) {
+                val.innerHTML = pageHTML;
+                fatherBreak = true;
+                break;
+              } else {
+                v.remove();
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  displayActivePage() {
+    let pages = [...document.getElementsByClassName("page")];
+    pages.map(val => {
+      val.style.display = "block";
+      if (val.clientHeight === 0) {
+        val.remove();
+      }
+    });
+    this.hidePage();
+    this.showPage();
+  }
+
+  getTotalPage() {
+    document.getElementById("total").innerHTML = [
+      ...document.getElementsByClassName("page")
+    ].length;
   }
 
   moveDoms(dom) {
@@ -218,13 +428,11 @@ class LessonPreview extends React.Component {
       if (pageContent.className.indexOf("pageContent") > -1) {
         parent = pageContent.parentNode;
         index = pageContent.className.split("pageContent")[1];
-      }
-      if (pageContent.parentNode.className.indexOf("pageContent") > -1) {
+      } else if (pageContent.parentNode.className.indexOf("pageContent") > -1) {
         parent = pageContent.parentNode.parentNode;
         index = pageContent.parentNode.className.split("pageContent")[1];
       }
       index = Number(index);
-      console.log(index);
       [...parent.getElementsByClassName("pageCont")].map(val => {
         if (Number(val.className.split("pageContent")[1]) > index) {
           needMoveStr += val.outerHTML;
@@ -243,25 +451,38 @@ class LessonPreview extends React.Component {
       div.className = "page";
       div.innerHTML = needMoveStr;
       div.style.display = "none";
-      console.log(parentIndex);
       document.getElementById("page" + parentIndex).outerHTML =
         document.getElementById("page" + parentIndex).outerHTML + div.outerHTML;
-      this.pageIndex++;
-      document.getElementById("total").innerHTML = this.pageIndex + 1;
-      this.addEvent();
+      this.computeHeigthAndMove(parent, true);
+      this.displayActivePage();
+      this.getTotalPage();
+      this.createMarkLines();
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  preMoveDoms(dom) {
+    try {
+      let page = dom.parentNode.parentNode;
+      this.computeHeigthAndMove(page);
+      this.displayActivePage();
+      this.getTotalPage();
+      this.createMarkLines();
     } catch (e) {
       console.log(e);
     }
   }
 
   hidePage() {
-    let pages = document.getElementsByClassName("page");
-    for (let l = pages.length, i = 0; i < l; i++) {
-      pages[i].style.display = "none";
-    }
+    let pages = [...document.getElementsByClassName("page")];
+    pages.map(val => {
+      val.style.display = "none";
+    });
   }
 
   showPage() {
+    if (document.getElementById("page" + this.pageId) === null) return;
     document.getElementById("page" + this.pageId).style.display = "block";
     document.getElementById("activePage").innerHTML = this.pageId + 1;
   }
@@ -275,7 +496,7 @@ class LessonPreview extends React.Component {
   }
 
   nextPage() {
-    if (this.pageId < this.pageIndex) {
+    if (this.pageId < [...document.getElementsByClassName("page")].length - 1) {
       this.hidePage();
       this.pageId++;
       this.showPage();
@@ -293,20 +514,17 @@ class LessonPreview extends React.Component {
       return (
         <div
           className={`${style.content_1} personBreaks`}
-          data-pageMark={value.pageMark}
+          style={{ margingBottom: "24px" }}
+          data-pageMark={0}
           data-index={index}
         >
           <Katex value={value.content} />
-          <p
-            className={`${style.paginationLine} ${
-              value.pageMark === 1 ? style.show : style.hide
-            } borderTop`}
-          >
+          <p className={`${style.paginationLine} borderTop`}>
             <a
               className={`${style.paginationLineAction} changeTest`}
               href="javascript:;"
             >
-              {value.pageMark === 1 ? "取消分页" : "在此处分页"}
+              在此处分页
             </a>
           </p>
         </div>
@@ -315,62 +533,36 @@ class LessonPreview extends React.Component {
       return (
         <div
           className={`${style.content_2} personBreaks`}
-          data-pageMark={value.pageMark}
+          style={{ margingBottom: "24px" }}
+          data-pageMark={0}
           data-index={index}
         >
           <Katex value={value.content} />
-          <p
-            className={`${style.paginationLine} ${
-              value.pageMark === 1 ? style.show : style.hide
-            } borderTop`}
-          >
+          <p className={`${style.paginationLine} borderTop`}>
             <a
               className={`${style.paginationLineAction} changeTest`}
               href="javascript:;"
             >
-              {value.pageMark === 1 ? "取消分页" : "在此处分页"}
+              在此处分页
             </a>
           </p>
         </div>
       );
-    }
-    // else if (value.key && value.key.split('_').length === 3) {
-    //   return <div className={style.lines}>
-    //     {/*<p className={style.content_3}>知识点</p>*/}
-    //     <p style={{fontSize: '10px'}} className={'needOpration'}>
-    //       <Katex value={value.content}/>
-    //       <p className={`${style.paginationLine} ${value.pageMark === 1 ? style.show : style.hide}`}>
-    //         <a className={`${style.paginationLineAction} personBreaks`}
-    //            href="javascript:;"
-    //            data-index={index}
-    //            data-pageMark={value.pageMark}>{value.pageMark === 1 ? '取消分页' : '在此处分页'}</a>
-    //       </p>
-    //     </p>
-    //   </div>
-    // } else if (value.key && value.key.split('_').length === 4) {
-    //   return <div className={style.lines}>
-    //     {/*<p className={style.content_4}>方法</p>*/}
-    //     <p style={{fontSize: '10px'}} className={'needOpration'}>
-    //       <Katex value={value.content}/>
-    //       <p className={`${style.paginationLine} ${value.pageMark === 1 ? style.show : style.hide}`}>
-    //         <a className={`${style.paginationLineAction} personBreaks`}
-    //            href="javascript:;"
-    //            data-index={index}
-    //            data-pageMark={value.pageMark}>{value.pageMark === 1 ? '取消分页' : '在此处分页'}</a>
-    //       </p>
-    //     </p>
-    //   </div>
-    // }
-    else {
+    } else {
       return (
         <div
           className={`${style.lines} personBreaks`}
-          data-pageMark={value.pageMark}
+          data-pageMark={0}
           data-index={index}
         >
-          {/*<p className={style.content_5}>题型</p>*/}
           <div style={{ fontSize: "10px" }} className={"needOpration"}>
-            <p>
+            <p
+              style={{
+                wordWrap: "break-word",
+                wordBreak: "normal",
+                margingBottom: "24px"
+              }}
+            >
               <span
                 style={{
                   display: "inline-block",
@@ -382,16 +574,12 @@ class LessonPreview extends React.Component {
               </span>
               <Katex value={value.content} />
             </p>
-            <p
-              className={`${style.paginationLine} ${
-                value.pageMark === 1 ? style.show : style.hide
-              } borderTop`}
-            >
+            <p className={`${style.paginationLine} borderTop`}>
               <a
                 className={`${style.paginationLineAction} changeTest`}
                 href="javascript:;"
               >
-                {value.pageMark === 1 ? "取消分页" : "在此处分页"}
+                在此处分页
               </a>
             </p>
           </div>
@@ -402,18 +590,22 @@ class LessonPreview extends React.Component {
 
   render() {
     let myData = [...this.props.dataSource];
+    myData = deepClone(myData);
     this.newData = [];
     myData.map(val => {
       let demoQuestions = [...val.demoQuestions];
       val.demoQuestions = [];
-      // if (val.id)
+      val.pageMark = 0;
       this.newData.push(val);
       if (demoQuestions) {
         demoQuestions.map(value => {
           this.newData.push({
             content: value.stem,
             type: 6,
-            pageMark: 0
+            pageMark: 0,
+            innerQTid: val.id,
+            innerQid: value.id,
+            innerQType: value.type || null
           });
           let arrayLength = Math.max(
             value.answerVoList,
@@ -425,21 +617,30 @@ class LessonPreview extends React.Component {
               this.newData.push({
                 content: value.optionVoList[i].content,
                 type: 7,
-                pageMark: 0
+                pageMark: 0,
+                innerQTid: val.id,
+                innerQid: value.id,
+                innerQType: value.type || null
               });
             }
             if (value.answerVoList[i]) {
               this.newData.push({
                 content: value.answerVoList[i].content,
                 type: 8,
-                pageMark: 0
+                pageMark: 0,
+                innerQTid: val.id,
+                innerQid: value.id,
+                innerQType: value.type || null
               });
             }
             if (value.analysisVoList[i]) {
               this.newData.push({
                 content: value.analysisVoList[i].content,
                 type: 9,
-                pageMark: 0
+                pageMark: 0,
+                innerQTid: val.id,
+                innerQid: value.id,
+                innerQType: value.type || null
               });
             }
           });
@@ -465,6 +666,24 @@ class LessonPreview extends React.Component {
         onOk={this.closePreview}
         onCancel={this.closePreview}
       >
+        <Spin
+          size="large"
+          spinning={this.state.loading}
+          style={{
+            position: "absolute",
+            bottom: "50%",
+            left: "50%"
+          }}
+        />
+        <div id="getDom" style={{ display: "none" }}>
+          {this.newData.map((c, i) => {
+            return (
+              <div className={`pageContent`} key={i} data={c.pageMark}>
+                {this.getDoms(c, i)}
+              </div>
+            );
+          })}
+        </div>
         <div
           id="previewBox"
           style={{
@@ -474,102 +693,68 @@ class LessonPreview extends React.Component {
             background: "#f0f4f7"
           }}
         >
-          {this.newData.map((c, i) => {
-            return (
-              <div className={`pageContent`} key={i} data={c.pageMark}>
-                {this.getDoms(c, i)}
-              </div>
-            );
-
-            // return this.getDoms(c, i);
-            // return (
-            //   <div key={i}>
-            //     <div className={`pageContent`} style={{marginBottom: '6px'}}>
-            //       <p className={'needOpration'}><Katex value={c.content}/></p>
-            //     </div>
-            //     {
-            //       c.demoQuestions.map((val, index) => {
-            //         return (
-            //           <div className={`pageContent`}>
-            //             <Katex value={val.stem}/>
-            //             {
-            //               (val.answerVoList.length > val.analysisVoList.length ? val.answerVoList : val.analysisVoList).map((value, index) => {
-            //                 return (
-            //                   <div data-parent={i} data-child={index} className={'needOpration'}>
-            //                     <p data-parent={i} data-child={index}>答案：<Katex value={(val.answerVoList[index] || {}).content || ''}/></p>
-            //                     <p data-parent={i} data-child={index}>解题：<Katex value={(val.analysisVoList[index] || {}).content || ''}/></p>
-            //                   </div>
-            //                 )
-            //               })
-            //             }
-            //           </div>
-            //         )
-            //       })
-            //     }
-            //   </div>
-            // )
-          })}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "20px",
-              textAlign: "center",
-              width: "405px"
-            }}
-          >
-            <Button type="primary" onClick={this.prePage}>
-              上一页
-            </Button>
-            <span style={{ margin: "10px" }}>
-              第<span id={"activePage"}>1</span>/<span id={"total"} />页
-            </span>
-            <Button type="primary" onClick={this.nextPage}>
-              下一页
-            </Button>
-          </div>
-          <div
-            onClick={this.closePreview}
-            style={{
-              position: "absolute",
-              bottom: "-48px",
-              left: "203px",
-              width: "40px",
-              height: "40px",
-              borderRadius: "20px",
-              background: "#CCCCCC",
-              cursor: "pointer"
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: "50%",
-              left: "600px"
-            }}
-          >
-            <p>
-              <Button type="primary" onClick={this.save}>
-                确定保存
-              </Button>
-            </p>
-            <p>
-              <Button type="primary" onClick={this.closePreview}>
-                返回修改
-              </Button>
-            </p>
-          </div>
+          {/*{*/}
+          {/*this.newData.map((c, i) => {*/}
+          {/*return (*/}
+          {/*<div className={`pageContent`} key={i} data={c.pageMark}>*/}
+          {/*{*/}
+          {/*this.getDoms(c, i)*/}
+          {/*}*/}
+          {/*</div>*/}
+          {/*);*/}
+          {/*})*/}
+          {/*}*/}
         </div>
-        {/*<span*/}
-        {/*id="ruler"*/}
-        {/*style={{*/}
-        {/*position: 'absolute',*/}
-        {/*visibility: 'hidden',*/}
-        {/*whiteSpace: 'nowrap',*/}
-        {/*zIndex: '-100',*/}
-        {/*}}*/}
-        {/*>*/}
-        {/*test*/}
-        {/*</span>*/}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "20px",
+            textAlign: "center",
+            width: "405px",
+            zIndex: "1000"
+          }}
+        >
+          <Button type="primary" onClick={this.prePage}>
+            上一页
+          </Button>
+          <span style={{ margin: "10px" }}>
+            第<span id={"activePage"}>1</span>/<span id={"total"} />页
+          </span>
+          <Button type="primary" onClick={this.nextPage}>
+            下一页
+          </Button>
+        </div>
+        <div
+          onClick={this.closePreview}
+          style={{
+            position: "absolute",
+            bottom: "-48px",
+            left: "203px",
+            width: "40px",
+            height: "40px",
+            borderRadius: "20px",
+            background: "#CCCCCC",
+            cursor: "pointer"
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "50%",
+            left: "600px"
+          }}
+        >
+          <p>
+            <Button type="primary" onClick={this.save}>
+              确定保存
+            </Button>
+          </p>
+          <p>
+            <Button type="primary" onClick={this.closePreview}>
+              返回修改
+            </Button>
+          </p>
+        </div>
       </Modal>
     );
   }
